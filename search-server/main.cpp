@@ -33,7 +33,8 @@ vector<string> SplitIntoWords(const string& text) {
                 words.push_back(word);
                 word.clear();
             }
-        } else {
+        }
+        else {
             word += c;
         }
     }
@@ -45,9 +46,9 @@ vector<string> SplitIntoWords(const string& text) {
 }
 
 struct Document {
-    int id;
-    double relevance;
-    int rating;
+    int id = 0;
+    double relevance = 0.0;
+    int rating = 0;
 };
 
 enum class DocumentStatus {
@@ -66,45 +67,45 @@ public:
     }
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
-                     const vector<int>& ratings) {
+        const vector<int>& ratings) {
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words) {
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
-        documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+        documents_.emplace(document_id, DocumentData{ ComputeAverageRating(ratings), status });
     }
 
-    
+
     vector<Document> FindTopDocuments(const string& raw_query) const {
-       return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
+        return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
     }
-    
+
     template <typename KeyMapper>
     vector<Document> FindTopDocuments(const string& raw_query, KeyMapper keymapper) const {
         const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, keymapper);
 
         sort(matched_documents.begin(), matched_documents.end(),
-             [](const Document& lhs, const Document& rhs) {
-                 if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
-                     return lhs.rating > rhs.rating;
-                 } else {
-                     return lhs.relevance > rhs.relevance;
-                 }
+            [](const Document& lhs, const Document& rhs) {
+                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                    return lhs.rating > rhs.rating;
+                }
+
+                return lhs.relevance > rhs.relevance;
              });
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
         return matched_documents;
     }
-
+dcd
     int GetDocumentCount() const {
         return documents_.size();
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query,
-                                                        int document_id) const {
+        int document_id) const {
         const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
         for (const string& word : query.plus_words) {
@@ -124,7 +125,7 @@ public:
                 break;
             }
         }
-        return {matched_words, documents_.at(document_id).status};
+        return { matched_words, documents_.at(document_id).status };
     }
 
 private:
@@ -175,7 +176,7 @@ private:
             is_minus = true;
             text = text.substr(1);
         }
-        return {text, is_minus, IsStopWord(text)};
+        return { text, is_minus, IsStopWord(text) };
     }
 
     struct Query {
@@ -190,7 +191,8 @@ private:
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
                     query.minus_words.insert(query_word.data);
-                } else {
+                }
+                else {
                     query.plus_words.insert(query_word.data);
                 }
             }
@@ -204,6 +206,15 @@ private:
     }
 
     template <typename KeyMapper>
+    bool CheckSelection(const int document_id, const DocumentStatus status_doc, const int rating, const KeyMapper keymapper) const {
+        return keymapper(document_id, status_doc, rating);
+    }
+
+    bool CheckSelection(const int document_id, const DocumentStatus status_doc, const int rating, const DocumentStatus keymapper) const {
+        return keymapper == status_doc;
+    }
+
+    template <typename KeyMapper>
     vector<Document> FindAllDocuments(const Query& query, KeyMapper keymapper) const {
         map<int, double> document_to_relevance;
         for (const string& word : query.plus_words) {
@@ -212,11 +223,7 @@ private:
             }
             const double inverse_document_freq = ComputeWordInverseDocumentFreq(word);
             for (const auto [document_id, term_freq] : word_to_document_freqs_.at(word)) {
-                if constexpr (is_same_v<KeyMapper, DocumentStatus>){
-                   if (keymapper == documents_.at(document_id).status) {
-                    document_to_relevance[document_id] += term_freq * inverse_document_freq;
-                   } 
-                } else if (keymapper(document_id, documents_.at(document_id).status, documents_.at(document_id).rating)) {
+                if (CheckSelection(document_id, documents_.at(document_id).status, documents_.at(document_id).rating, keymapper)) {
                     document_to_relevance[document_id] += term_freq * inverse_document_freq;
                 }
             }
@@ -234,7 +241,7 @@ private:
         vector<Document> matched_documents;
         for (const auto [document_id, relevance] : document_to_relevance) {
             matched_documents.push_back(
-                {document_id, relevance, documents_.at(document_id).rating});
+                { document_id, relevance, documents_.at(document_id).rating });
         }
         return matched_documents;
     }
@@ -244,18 +251,18 @@ private:
 
 void PrintDocument(const Document& document) {
     cout << "{ "s
-         << "document_id = "s << document.id << ", "s
-         << "relevance = "s << document.relevance << ", "s
-         << "rating = "s << document.rating << " }"s << endl;
+        << "document_id = "s << document.id << ", "s
+        << "relevance = "s << document.relevance << ", "s
+        << "rating = "s << document.rating << " }"s << endl;
 }
 
 int main() {
     SearchServer search_server;
     search_server.SetStopWords("и в на"s);
-    search_server.AddDocument(0, "белый кот и модный ошейник"s,        DocumentStatus::ACTUAL, {8, -3});
-    search_server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
-    search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
-    search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
+    search_server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
+    search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
+    search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+    search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
     cout << "ACTUAL by default:"s << endl;
     for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
         PrintDocument(document);
@@ -269,4 +276,4 @@ int main() {
         PrintDocument(document);
     }
     return 0;
-} 
+}

@@ -81,6 +81,11 @@ public:
         return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
     }
 
+    vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const {
+        return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus document_status, int rating) {
+            return document_status == status; });
+    }
+
     template <typename KeyMapper>
     vector<Document> FindTopDocuments(const string& raw_query, KeyMapper keymapper) const {
         const Query query = ParseQuery(raw_query);
@@ -93,13 +98,13 @@ public:
                 }
 
                 return lhs.relevance > rhs.relevance;
-             });
+            });
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
         return matched_documents;
     }
-dcd
+    
     int GetDocumentCount() const {
         return documents_.size();
     }
@@ -205,15 +210,7 @@ private:
         return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
     }
 
-    template <typename KeyMapper>
-    bool CheckSelection(const int document_id, const DocumentStatus status_doc, const int rating, const KeyMapper keymapper) const {
-        return keymapper(document_id, status_doc, rating);
-    }
-
-    bool CheckSelection(const int document_id, const DocumentStatus status_doc, const int rating, const DocumentStatus keymapper) const {
-        return keymapper == status_doc;
-    }
-
+ 
     template <typename KeyMapper>
     vector<Document> FindAllDocuments(const Query& query, KeyMapper keymapper) const {
         map<int, double> document_to_relevance;
@@ -223,7 +220,7 @@ private:
             }
             const double inverse_document_freq = ComputeWordInverseDocumentFreq(word);
             for (const auto [document_id, term_freq] : word_to_document_freqs_.at(word)) {
-                if (CheckSelection(document_id, documents_.at(document_id).status, documents_.at(document_id).rating, keymapper)) {
+                if (keymapper(document_id, documents_.at(document_id).status, documents_.at(document_id).rating)) {
                     document_to_relevance[document_id] += term_freq * inverse_document_freq;
                 }
             }

@@ -11,6 +11,7 @@
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double epsilon = 1e-6;
 
 string ReadLine() {
     string s;
@@ -94,7 +95,7 @@ public:
 
         sort(matched_documents.begin(), matched_documents.end(),
             [](const Document& lhs, const Document& rhs) {
-                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < epsilon) {
                     return lhs.rating > rhs.rating;
                 }
 
@@ -362,13 +363,96 @@ void TestMatchDocuments() {
     }
 }
 
-// Сортировка найденных документов по релевантности.
-// Возвращаемые при поиске документов результаты должны быть отсортированы в порядке убывания релевантности
+
 // Проверяет правильность вычисления rating
-// Проверяет правильность вычисления relevance
+void TestRatingDocuments() {
+ 
+    // положительные оценки
+    {
+        SearchServer server;
+        server.SetStopWords("и в на"s);
+        server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
+        server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
+        server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+        server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+        const auto found_docs = server.FindTopDocuments("пушистый кот"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 2, "Incorrect search in FindTopDocuments"s);
+        const Document& doc0 = found_docs[0];
+        // проверяем правльность расчета rating
+        ASSERT_EQUAL_HINT(doc0.rating, 5, "Wrong rating calculation"s);
+    }
+
+    //отрицательные оценки
+    {
+        SearchServer server;
+        server.SetStopWords("и в на"s);
+        server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
+        server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { -7, -2, -7 });
+        server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+        server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+        const auto found_docs = server.FindTopDocuments("пушистый кот"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 2, "Incorrect search in FindTopDocuments"s);
+        const Document& doc0 = found_docs[0];
+        // проверяем правльность расчета rating
+        ASSERT_EQUAL_HINT(doc0.rating, -5, "Wrong rating calculation"s);
+    }
+
+    //смешание оценки
+    {
+        SearchServer server;
+        server.SetStopWords("и в на"s);
+        server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
+        server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { -7, -2, 7 });
+        server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+        server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+        const auto found_docs = server.FindTopDocuments("пушистый кот"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 2, "Incorrect search in FindTopDocuments"s);
+        const Document& doc0 = found_docs[0];
+        // проверяем правльность расчета rating
+        ASSERT_EQUAL_HINT(doc0.rating, 0, "Wrong rating calculation"s);
+    }
+
+}
 // Проверяет правальность поиска по статусу
 // Проверяет правальность поиска с использованием предиката, задаваемого пользователем
-void TestSortRatingRelevanceSearchDocuments() {
+void TestSearchDocuments() {
+    SearchServer server;
+    server.SetStopWords("и в на"s);
+    server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
+    server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
+    server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+    server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+
+    // проверяем правальность поиска по статусу ACTUAL
+    {
+        ASSERT_EQUAL_HINT(server.FindTopDocuments("пушистый кот"s, DocumentStatus::ACTUAL).size(), 2, "Incorect search by status"s);
+    }
+
+    // проверяем правальность поиска по статусу IRRELEVANT
+    {
+        ASSERT_HINT(server.FindTopDocuments("пушистый кот"s, DocumentStatus::IRRELEVANT).empty(), "Incorect search by status"s);
+    }
+
+    // проверяем правальность поиска по статусу BANNED
+    {
+        ASSERT_EQUAL_HINT(server.FindTopDocuments("скворец"s, DocumentStatus::BANNED).size(), 1, "Incorect search by status"s);
+    }
+
+    // проверяем правальность поиска по статусу REMOVED
+    {
+        ASSERT_HINT(server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::REMOVED).empty(), "Incorect search by status"s);
+    }
+
+    // проверяем правальность поиска с использованием предиката
+    {
+        ASSERT_EQUAL_HINT(server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; }).size(), 2, "Incorect search by user's function"s);
+    }
+
+}
+
+// Сортировка найденных документов по релевантности.
+// Возвращаемые при поиске документов результаты должны быть отсортированы в порядке убывания релевантности
+void TestSortDocuments() {
     SearchServer server;
     server.SetStopWords("и в на"s);
     server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
@@ -379,26 +463,32 @@ void TestSortRatingRelevanceSearchDocuments() {
     {
         const auto found_docs = server.FindTopDocuments("пушистый кот"s);
         ASSERT_EQUAL_HINT(found_docs.size(), 2, "Incorrect search in FindTopDocuments"s);
+        double rel = 9999.0;
+        for (const auto& doc : found_docs) {
+            ASSERT_HINT(rel > doc.relevance, "Wrong sort"s);
+            rel = doc.relevance;
+        }
+ 
+    }
+}
+
+// Проверяет правильность вычисления relevance
+void TestRelevanceDocuments() {
+    SearchServer server;
+    server.SetStopWords("и в на"s);
+    server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
+    server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
+    server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+    server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+
+    {
+        const double etalon = 0.86643397569993164;
+        const auto found_docs = server.FindTopDocuments("пушистый кот"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 2, "Incorrect search in FindTopDocuments"s);
         const Document& doc0 = found_docs[0];
-        // проверяем правльность сортировки
-        ASSERT_EQUAL_HINT(doc0.id, 1, "Wrong sort"s);
-        // проверяем правльность расчета rating
-        ASSERT_EQUAL_HINT(doc0.rating, 5, "Wrong rating calculation"s);
         // проверяем правльность расчета relevance
-        ASSERT_EQUAL_HINT(doc0.relevance, 0.86643397569993164, "Wrong relevance calculation"s);
-
+        ASSERT_HINT(abs(doc0.relevance - etalon) < epsilon, "Wrong relevance calculation"s);
     }
-
-    // проверяем правальность поиска по статусу
-    {
-        ASSERT_HINT(server.FindTopDocuments("пушистый кот"s, DocumentStatus::BANNED).empty(), "Incorect search by status"s);
-    }
-
-    // проверяем правальность поиска с использованием предиката
-    {
-        ASSERT_EQUAL_HINT(server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; }).size(),  2, "Incorect search by user's function"s);
-    }
-
 }
 
 // Функция TestSearchServer является точкой входа для запуска тестов
@@ -406,7 +496,10 @@ void TestSearchServer() {
     RUN_TEST(TestExcludeStopWordsFromAddedDocumentContent);
     RUN_TEST(TestExcludeMinusWordsFromFindTopDocuments);
     RUN_TEST(TestMatchDocuments);
-    RUN_TEST(TestSortRatingRelevanceSearchDocuments);
+    RUN_TEST(TestRatingDocuments);
+    RUN_TEST(TestSearchDocuments);
+    RUN_TEST(TestSortDocuments);
+    RUN_TEST(TestRelevanceDocuments);
 }
 
 // --------- Окончание модульных тестов поисковой системы -----------

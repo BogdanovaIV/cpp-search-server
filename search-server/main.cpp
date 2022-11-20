@@ -12,6 +12,7 @@
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double epsilon = 1e-6;
 
 string ReadLine() {
     string s;
@@ -61,22 +62,10 @@ struct Document {
     int rating = 0;
 };
 
-static bool IsValidWord(const string& word) {
-    // A valid word must not contain special characters
-    return none_of(word.begin(), word.end(), [](char c) {
-        return c >= '\0' && c < ' ';
-        });
-}
-
 template <typename StringContainer>
 set<string> MakeUniqueNonEmptyStrings(const StringContainer& strings) {
     set<string> non_empty_strings;
     for (const string& str : strings) {
-        if (!IsValidWord(str)) {
-            throw invalid_argument("Word is'nt valid (stop word)");
-            continue;
-        }
-
         if (!str.empty()) {
             non_empty_strings.insert(str);
         }
@@ -96,8 +85,12 @@ public:
     inline static constexpr int INVALID_DOCUMENT_ID = -1;
 
     template <typename StringContainer>
-    explicit SearchServer(const StringContainer& stop_words)
-        : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
+    explicit SearchServer(const StringContainer& stop_words) {
+        for (const string& word : MakeUniqueNonEmptyStrings(stop_words)) {
+            if (!IsValidWord(word)) {
+                throw invalid_argument("Word is'nt valid (stop word)");
+            }
+        }
     }
 
     explicit SearchServer(const string& stop_words_text)
@@ -133,12 +126,12 @@ public:
 
         sort(result.begin(), result.end(),
             [](const Document& lhs, const Document& rhs) {
-                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < epsilon) {
                     return lhs.rating > rhs.rating;
                 }
-                else {
-                    return lhs.relevance > rhs.relevance;
-                }
+                
+                return lhs.relevance > rhs.relevance;
+                
             });
         if (result.size() > MAX_RESULT_DOCUMENT_COUNT) {
             result.resize(MAX_RESULT_DOCUMENT_COUNT);
@@ -201,6 +194,13 @@ private:
      bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
     }
+
+     static bool IsValidWord(const string& word) {
+         // A valid word must not contain special characters
+         return none_of(word.begin(), word.end(), [](char c) {
+             return c >= '\0' && c < ' ';
+             });
+     }
 
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;

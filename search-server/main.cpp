@@ -8,6 +8,7 @@
 #include <vector>
 #include <optional>
 #include <stdexcept>
+#include <numeric>
 
 using namespace std;
 
@@ -216,10 +217,7 @@ private:
         if (ratings.empty()) {
             return 0;
         }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
         return rating_sum / static_cast<int>(ratings.size());
     }
 

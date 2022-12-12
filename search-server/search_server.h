@@ -16,12 +16,7 @@ public:
     inline static constexpr int INVALID_DOCUMENT_ID = -1;
 
     template <typename StringContainer>
-    explicit SearchServer(const StringContainer& stop_words)
-        : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
-        if (!std::all_of(stop_words_.begin(), stop_words_.end(), IsValidWord)) {
-            throw std::invalid_argument("Some of stop words are invalid"s);
-        }
-    }
+    explicit SearchServer(const StringContainer& stop_words);
 
     explicit SearchServer(const std::string& stop_words_text)
         : SearchServer(
@@ -56,22 +51,11 @@ private:
 
     bool IsStopWord(const std::string& word) const;
 
-    static bool IsValidWord(const std::string& word) {
-        // A valid word must not contain special characters
-        return std::none_of(word.begin(), word.end(), [](char c) {
-            return c >= '\0' && c < ' ';
-            });
-    }
+    static bool IsValidWord(const std::string& word);
 
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const;
 
-    static int ComputeAverageRating(const std::vector<int>& ratings) {
-        if (ratings.empty()) {
-            return 0;
-        }
-        int rating_sum = std::accumulate(ratings.begin(), ratings.end(), 0);
-        return rating_sum / static_cast<int>(ratings.size());
-    }
+    static int ComputeAverageRating(const std::vector<int>& ratings);
 
     struct QueryWord {
         std::string data;
@@ -95,6 +79,14 @@ private:
     std::vector<Document> FindAllDocuments(const Query& query,
         DocumentPredicate document_predicate) const;
 };
+
+template <typename StringContainer>
+SearchServer::SearchServer(const StringContainer& stop_words)
+    : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
+    if (!std::all_of(stop_words_.begin(), stop_words_.end(), SearchServer::IsValidWord)) {
+        throw std::invalid_argument("Some of stop words are invalid"s);
+    }
+}
 
 template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query, DocumentPredicate document_predicate) const {

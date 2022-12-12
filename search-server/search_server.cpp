@@ -111,3 +111,18 @@ SearchServer::Query SearchServer::ParseQuery(const std::string& text) const {
 double SearchServer::ComputeWordInverseDocumentFreq(const std::string& word) const {
     return std::log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
 }
+
+bool SearchServer::IsValidWord(const std::string& word) {
+    // A valid word must not contain special characters
+    return std::none_of(word.begin(), word.end(), [](char c) {
+        return c >= '\0' && c < ' ';
+        });
+}
+
+int SearchServer::ComputeAverageRating(const std::vector<int>& ratings) {
+    if (ratings.empty()) {
+        return 0;
+    }
+    int rating_sum = std::accumulate(ratings.begin(), ratings.end(), 0);
+    return rating_sum / static_cast<int>(ratings.size());
+}

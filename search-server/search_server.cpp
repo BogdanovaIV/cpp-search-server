@@ -15,6 +15,7 @@ void SearchServer::AddDocument(int document_id, const std::string & document, Do
             throw std::invalid_argument("Word is'nt valid (documaent)");
         }
         word_to_document_freqs_[word][document_id] += inv_word_count;
+        document_to_word_freqs_[document_id][word] += inv_word_count;
     }
     documents_.emplace(document_id, SearchServer::DocumentData{ComputeAverageRating(ratings), status});
     documents_input_.push_back(document_id);
@@ -126,3 +127,38 @@ int SearchServer::ComputeAverageRating(const std::vector<int>& ratings) {
     int rating_sum = std::accumulate(ratings.begin(), ratings.end(), 0);
     return rating_sum / static_cast<int>(ratings.size());
 }
+
+const std::map<std::string, double>& SearchServer::GetWordFrequencies(int document_id) const {
+    return document_to_word_freqs_.at(document_id);
+}
+
+void SearchServer::RemoveDocument(int document_id) {
+
+    if (document_to_word_freqs_.count(document_id)) {
+        
+        auto it = find(documents_input_.begin(), documents_input_.end(), document_id);
+        documents_input_.erase(it, it+1);
+
+        for (auto str : document_to_word_freqs_.at(document_id)) {
+            auto documents = word_to_document_freqs_.at(str.first);
+            documents.erase(documents.find(document_id));
+        }
+
+        documents_.erase(documents_.find(document_id));
+
+        document_to_word_freqs_.erase(document_to_word_freqs_.find(document_id));
+    }
+}
+
+std::vector<int>::iterator  SearchServer::begin() {
+    return documents_input_.begin();
+}
+
+std::vector<int>::iterator SearchServer::end() {
+    return documents_input_.end();
+}
+
+void AddDocument(SearchServer& search_server, int document_id, const std::string& document, DocumentStatus status, const std::vector<int>& ratings) {
+    search_server.AddDocument(document_id, document, status, ratings);
+}
+

@@ -1,14 +1,14 @@
 # cpp-search-server
-Поисковый сервер.
+Search engine
 
-Эта поисковая система предназначена для поиска документов, содержащих определенную информацию, в большом объеме данных.
+This search engine is designed to search for documents containing specific information in a large volume of data.
 
-Она принимает на вход список документов и стоп-слова в консольном режиме, что позволяет пользователю задать свой запрос и исключить из поиска слова, не имеющие отношения к данному запросу.
+It takes in a list of documents and stop words in console mode, allowing the user to input their query and exclude words that are not relevant to their query.
 
-Для определения релевантности каждого документа к запросу используется формула, которая учитывает количество вхождений слова запроса в документе и общее количество слов в документе. Также каждый документ получает рейтинг, который основан на количестве уникальных слов в нем.
+To determine the relevance of each document to the query, a formula is used that takes into account the number of occurrences of the query word in the document and the total number of words in the document. Additionally, each document is assigned a rating based on the number of unique words it contains.
 
-Поиск осуществляется эффективно благодаря оптимизированному алгоритму обработки запросов, который учитывает все параметры релевантности и рейтинга для каждого документа.
+Search is performed efficiently thanks to an optimized query processing algorithm that takes into account all relevance and rating parameters for each document.
 
-После обработки запроса система возвращает массив id документов, отсортированных по убыванию релевантности и рейтингу. Результаты поиска выводятся в консоль, что позволяет пользователю ознакомиться с найденными документами и выбрать нужный.
+After processing the request, the system returns an array of document IDs, sorted in descending order by relevance and rating. Search results are displayed in the console, allowing the user to review the found documents and choose the one they need.
 
-Таким образом, данная поисковая система представляет собой удобный и эффективный инструмент для поиска нужной информации в большом объеме данных.
+Thus, this search engine is a convenient and efficient tool for finding the desired information in a large volume of data.
